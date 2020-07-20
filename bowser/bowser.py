@@ -8,6 +8,20 @@ import json
 import zlib
 import brotli # pylint: disable=import-error
 import gzip
+import os
+
+
+def clean_url(url):
+    """
+    remove last forward slash from url
+    """
+    ret_url = None
+    last_char = url[-1:]
+    if last_char == '/':
+        ret_url = url[:-1]
+    else:
+        ret_url = url
+    return ret_url
 
 
 class LinkCheck():
@@ -16,6 +30,7 @@ class LinkCheck():
         self.wbstring = wbstring
         self.return_data = dict()
         self.get_info()
+        
 
 
     def display_header(self,header_line):
@@ -58,15 +73,17 @@ class LinkCheck():
         
         try:
             crl.perform()
-        except Exception:
+        except Exception as e:
             self.return_data['input_url'] = self.wbstring
             self.return_data['output_url'] = 'error'
             self.return_data['body'] = 'error'
             self.return_data['status-code'] ='error'
+            self.return_data['error-comment'] = str(e)
             return
 
         st_code = crl.getinfo(pycurl.RESPONSE_CODE)
         locaiton = crl.getinfo(pycurl.EFFECTIVE_URL)
+        locaiton = clean_url(locaiton)
         crl.close()
 
         #get html by curl
@@ -116,13 +133,14 @@ class LinkCheck():
             self.return_data['status-code'] ='error'
             self.return_data['error-comment'] = 'invalid content type'
             return
-
+      
         visible_html = text_from_html(html)
         visible_html = visible_html.strip()
         self.return_data['input_url'] = self.wbstring
         self.return_data['output_url'] = locaiton
         self.return_data['body'] = visible_html
         self.return_data['status-code'] =st_code
+        self.return_data['error-comment'] = 'OK'
 
         
 
@@ -139,7 +157,6 @@ def text_from_html(body):
     
     soup = BeautifulSoup(body, 'html.parser')
     texts = soup.findAll(text=True)
-    print(texts)
     visible_texts = filter(tag_visible, texts)  
     return u" ".join(t.strip() for t in visible_texts)
 
@@ -153,7 +170,7 @@ def parse_url(url):
     dict_result['netloc']  = result.netloc
     dict_result['path'] = result.path
     dict_result['params'] = result.params
-    dict_result['quey'] = result.query
+    dict_result['query'] = result.query
     dict_result['fragment'] = result.fragment
     return dict_result
 
@@ -162,12 +179,13 @@ class UrlChecker():
     def __init__(self,input_url,output_url=None,url_body=None,status_code=None):
 
         self.ucheck_result = dict()
-
+        input_url = clean_url(input_url)
         self.input_url = input_url
         self.output_url = output_url
         self.url_body = url_body
         self.status_code = status_code
-
+        
+        self.error_comment = None
 
         
         self.input_url_schema = None
@@ -190,14 +208,19 @@ class UrlChecker():
             dict_url_data = lc.return_data
             self.output_url = dict_url_data['output_url']
             self.url_body = dict_url_data['body']
-            self.status_code = dict_url_data['status_code']
+            self.status_code = dict_url_data['status-code']
+            self.error_comment=dict_url_data['error-comment']
+        #parse url data
+        self.set_parse_url_data()
+        #compare url
+        self.compare_url()
 
-    def set_parsed_url_data(self):
+    def set_parse_url_data(self):
         dict_input_url = parse_url(self.input_url)
         dict_output_url = parse_url(self.output_url)
 
          
-        self.input_url_schema = dict_input_url['scheme']
+        self.input_url_schema = dict_input_url['schema']
         self.input_url_netloc = dict_input_url['netloc']
         self.input_url_path = dict_input_url['path']
         self.input_url_params = dict_input_url['params']
@@ -206,7 +229,7 @@ class UrlChecker():
 
 
 
-        self.output_url_schema = dict_output_url['scheme']
+        self.output_url_schema = dict_output_url['schema']
         self.output_url_netloc = dict_output_url['netloc']
         self.output_url_path = dict_output_url['path']
         self.output_url_params = dict_output_url['params']
@@ -215,24 +238,32 @@ class UrlChecker():
 
     def compare_url(self):
         #if output url is not good 
-        if self.output_url_schema is None or len(self.output_url_schema <=2):
-            self.ucheck_result['input_url'] = self.input_url
-            self.ucheck_result['output_url'] = self.output_url
-            self.ucheck_result['status_code'] = self.status_code
-            
+        self.ucheck_result['input_url'] = self.input_url
+        self.ucheck_result['output_url'] = self.output_url
+        self.ucheck_result['status_code'] = self.status_code
+        self.ucheck_result['error-comment'] = self.error_comment
+
+
+
+        if self.output_url == 'error':
+            self.ucheck_result['final_result'] = 'NOT WORKING'
+        elif len(self.input_url_schema) == 0  and self.output_url != 'error':
+            self.ucheck_result['final_result'] = 'WORKING FRESH'
+        elif self.input_url == self.output_url:
+            self.ucheck_result['final_result'] = 'WORKING OLD'
             
 
+       
+        
 
         
-            
         
 
-
-
-    
-
+            
 
 
 if __name__ == "__main__":
-    lc = LinkCheck('https://www.cloudsavvyit.com/1046/reduce-your-websites-size-with-gzip-and-deflate-compression/')
-    print(lc.return_data)
+    uc = UrlChecker('http://www.google.com')
+    print(uc.ucheck_result)
+    
+   
