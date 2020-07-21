@@ -9,6 +9,13 @@ import zlib
 import brotli # pylint: disable=import-error
 import gzip
 import os
+import requests
+
+
+from dbf import return_txt_comp,return_session_textlist
+
+snooper_url = '0.0.0.0'
+snooper_port = 5000
 
 
 def clean_url(url):
@@ -22,6 +29,40 @@ def clean_url(url):
     else:
         ret_url = url
     return ret_url
+
+def snoop_website(url):
+    rqust_url = f'http://{snooper_url}:{snooper_port}/snoop?url={url}'
+    r = requests.get(rqust_url)
+    return r.text
+
+
+def snooper_body(body,url,objsession):
+    """This code will analyze the text to get the status of websites
+    if page needs rendering it will be rendered through snooper and whole json will be returned
+    for further processing"""
+    to_snooper = False
+
+    if len(body) <= 60:
+        to_snooper = True
+
+    if not to_snooper:
+        all_data = return_txt_comp(sessionobj=objsession,filter='NEXTENGINE')
+        for row in all_data:
+            row_text = row.t_text
+            if row_text.upper() in body.upper():
+                to_snooper = True
+                break
+   
+   
+    if not to_snooper:
+        return body,to_snooper
+    elif to_snooper:
+        snooped_json_body = snoop_website(url)
+        return snooped_json_body,to_snooper
+        
+
+        
+def check_for_domain()
 
 
 class LinkCheck():
@@ -176,7 +217,11 @@ def parse_url(url):
 
 
 class UrlChecker():
-    def __init__(self,input_url,output_url=None,url_body=None,status_code=None):
+    def __init__(self,input_url,output_url=None,url_body=None,status_code=None,
+                db_txtlist_session=None):
+
+
+
 
         self.ucheck_result = dict()
         input_url = clean_url(input_url)
@@ -184,6 +229,12 @@ class UrlChecker():
         self.output_url = output_url
         self.url_body = url_body
         self.status_code = status_code
+
+        if db_txtlist_session is not None:
+            self.db_txtlist_session = db_txtlist_session
+        else:
+            self.db_engine,self.db_txtlist_session = return_session_textlist()
+
         
         self.error_comment = None
 
@@ -237,33 +288,29 @@ class UrlChecker():
         self.output_url_fragment = dict_output_url['fragment']
 
     def compare_url(self):
-        #if output url is not good 
         self.ucheck_result['input_url'] = self.input_url
         self.ucheck_result['output_url'] = self.output_url
         self.ucheck_result['status_code'] = self.status_code
         self.ucheck_result['error-comment'] = self.error_comment
 
-
+        if self.output_url != 'error':
+            input('here')
+            self.ucheck_result['body'] = snooper_body(self.url_body,url=self.output_url,objsession=self.db_txtlist_session)[0]
+            with open('ts.html','w') as f:
+                f.write(self.ucheck_result['body'])
 
         if self.output_url == 'error':
             self.ucheck_result['final_result'] = 'NOT WORKING'
         elif len(self.input_url_schema) == 0  and self.output_url != 'error':
-            self.ucheck_result['final_result'] = 'WORKING FRESH'
+            self.ucheck_result['final_result'] = 'WORKING NEW'
         elif self.input_url == self.output_url:
             self.ucheck_result['final_result'] = 'WORKING OLD'
             
 
-       
-        
-
-        
-        
-
-            
-
 
 if __name__ == "__main__":
-    uc = UrlChecker('http://www.google.com')
+    uc = UrlChecker('comparehospitalcosts.com/')
     print(uc.ucheck_result)
+    # print(snoop_website('https://www.google.com'))
     
    
