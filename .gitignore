@@ -129,3 +129,5 @@ dmypy.json
 .pyre/
 bowser/test.py
 dbdata.json
+*.json
+*.html

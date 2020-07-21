@@ -16,14 +16,23 @@ class TextList(Base):
     t_type = Column(String)
     t_remarks = Column(String)
 
+class GoDaddyList(Base):
+    __tablename__ = 'godaddy_text_list'
+    t_id = Column(Integer,primary_key=True)
+    t_text = Column(String)
+    t_type=Column(String)
+
+
+
 
 
 def return_session_textlist():
     connstring_remote = pgconnstring()
     remote_engine = create_engine(connstring_remote)
     remote_session = sessionmaker(bind=remote_engine)
-    table_objects = [Base.metadata.tables['tbl_txtlist']]
-    Base.metadata.create_all(remote_engine,tables=table_objects)
+    # table_objects = [Base.metadata.tables['tbl_txtlist','godaddy_text_list']]
+    # Base.metadata.create_all(remote_engine,tables=table_objects)
+    Base.metadata.create_all(remote_engine)
     remotesession = remote_session()
     return remote_engine,remotesession
 
@@ -44,12 +53,29 @@ def return_txt_comp(sessionobj=None,filter=None):
         sessionengine.dispose()
     sessionobj.close()
     return all_data
+
+
+def return_txt_daddy(sessionobj=None,filter=None):
+    """returns all text from godaddy"""
+    all_data = None
+    sessionengine = None
+    if sessionobj is None:
+        sessionengine,sessionobj = return_session_textlist()
+    
+    if filter is None:
+        all_data = sessionobj.query(GoDaddyList).with_for_update(nowait=True) #pylint: disable=maybe-no-member
+    else:
+        all_data = sessionobj.query(GoDaddyList).with_for_update(nowait=True).filter(GoDaddyList.t_type==filter) #pylint: disable=maybe-no-member
+
+    if sessionengine is not None:
+        sessionengine.dispose()
+    sessionobj.close()
+    return all_data
     
 
 
 if __name__ == "__main__":
-    data = return_txt_comp()
-    input(type(data))
+    data = return_txt_daddy()
     for row in data:
         print(row.t_id)
 

@@ -12,7 +12,7 @@ import os
 import requests
 
 
-from dbf import return_txt_comp,return_session_textlist
+from dbf import return_txt_comp,return_session_textlist,return_txt_daddy
 
 snooper_url = '0.0.0.0'
 snooper_port = 5000
@@ -40,6 +40,7 @@ def snooper_body(body,url,objsession):
     """This code will analyze the text to get the status of websites
     if page needs rendering it will be rendered through snooper and whole json will be returned
     for further processing"""
+
     to_snooper = False
 
     if len(body) <= 60:
@@ -62,7 +63,19 @@ def snooper_body(body,url,objsession):
         
 
         
-def check_for_domain()
+def verify_the_daddy(objsession,body):
+        all_data = return_txt_daddy(sessionobj=objsession,filter='GODADDY')
+        is_daddy = False
+        daddy_name = None
+        for row in all_data:
+            row_text = row.t_text
+            if row_text.upper() in body.upper():
+                is_daddy = True
+                daddy_name= row_text.upper()
+                break
+        return is_daddy,daddy_name
+
+
 
 
 class LinkCheck():
@@ -294,11 +307,11 @@ class UrlChecker():
         self.ucheck_result['error-comment'] = self.error_comment
 
         if self.output_url != 'error':
-            input('here')
-            self.ucheck_result['body'] = snooper_body(self.url_body,url=self.output_url,objsession=self.db_txtlist_session)[0]
-            with open('ts.html','w') as f:
-                f.write(self.ucheck_result['body'])
-
+            h_body = snooper_body(self.url_body,url=self.output_url,objsession=self.db_txtlist_session)[0]
+            is_daddy,daddy_name = verify_the_daddy(objsession=self.db_txtlist_session,body=h_body)
+            self.ucheck_result['is_go_daddy'] =is_daddy
+            self.ucheck_result['daddy_text'] = daddy_name
+          
         if self.output_url == 'error':
             self.ucheck_result['final_result'] = 'NOT WORKING'
         elif len(self.input_url_schema) == 0  and self.output_url != 'error':
@@ -310,6 +323,7 @@ class UrlChecker():
 
 if __name__ == "__main__":
     uc = UrlChecker('comparehospitalcosts.com/')
+    # uc = UrlChecker('https://www.google.com/')
     print(uc.ucheck_result)
     # print(snoop_website('https://www.google.com'))
     
