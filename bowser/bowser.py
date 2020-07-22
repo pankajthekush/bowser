@@ -40,7 +40,7 @@ def snooper_body(body,url,objsession):
     """This code will analyze the text to get the status of websites
     if page needs rendering it will be rendered through snooper and whole json will be returned
     for further processing"""
-
+   
     to_snooper = False
 
     if len(body) <= 60:
@@ -141,10 +141,11 @@ class LinkCheck():
         crl.close()
 
         #get html by curl
+
         encoding = self.headers.get('content-encoding')
     
         html = None
-        
+
         if encoding == 'gzip':
             try:
                 #handle zlib.error: Error -3 while decompressing data: incorrect header check
@@ -181,15 +182,20 @@ class LinkCheck():
                 self.return_data['error-comment'] = str(e)
                 return
         else:
-            self.return_data['input_url'] = self.wbstring
-            self.return_data['output_url'] = 'error'
-            self.return_data['body'] = 'error'
-            self.return_data['status-code'] ='error'
-            self.return_data['error-comment'] = 'invalid content type'
-            return
+            try:
+                html  = storege.getvalue()
+
+            except:
+                self.return_data['input_url'] = self.wbstring
+                self.return_data['output_url'] = 'error'
+                self.return_data['body'] = 'error'
+                self.return_data['status-code'] ='error'
+                self.return_data['error-comment'] = 'invalid content encoding'
+                return
       
         visible_html = text_from_html(html)
         visible_html = visible_html.strip()
+        # visible_html = clean_html(html) #running on all thml
         self.return_data['input_url'] = self.wbstring
         self.return_data['output_url'] = locaiton
         self.return_data['body'] = visible_html
@@ -215,6 +221,12 @@ def text_from_html(body):
     return u" ".join(t.strip() for t in visible_texts)
 
 
+def clean_html(body):
+    soup = BeautifulSoup(body, 'html.parser')
+    texts = soup.findAll(text=True)
+    return u" ".join(t.strip() for t in texts)
+
+
 def parse_url(url):
 
     result = urlparse(url)
@@ -233,9 +245,6 @@ class UrlChecker():
     def __init__(self,input_url,output_url=None,url_body=None,status_code=None,
                 db_txtlist_session=None):
 
-
-
-
         self.ucheck_result = dict()
         input_url = clean_url(input_url)
         self.input_url = input_url
@@ -247,7 +256,6 @@ class UrlChecker():
             self.db_txtlist_session = db_txtlist_session
         else:
             self.db_engine,self.db_txtlist_session = return_session_textlist()
-
         
         self.error_comment = None
 
@@ -281,6 +289,7 @@ class UrlChecker():
 
     def set_parse_url_data(self):
         dict_input_url = parse_url(self.input_url)
+
         dict_output_url = parse_url(self.output_url)
 
          
@@ -313,18 +322,28 @@ class UrlChecker():
             self.ucheck_result['daddy_text'] = daddy_name
           
         if self.output_url == 'error':
-            self.ucheck_result['final_result'] = 'NOT WORKING'
+            self.ucheck_result['final_result'] = 'NOT_WORKING'
         elif len(self.input_url_schema) == 0  and self.output_url != 'error':
-            self.ucheck_result['final_result'] = 'WORKING NEW'
+            self.ucheck_result['final_result'] = 'WORKING_NEW'
         elif self.input_url == self.output_url:
-            self.ucheck_result['final_result'] = 'WORKING OLD'
-            
+            self.ucheck_result['final_result'] = 'WORKING_OLD'
+        elif self.input_url_netloc != self.output_url_netloc:
+            self.ucheck_result['final_result'] = 'REDIRECTION_DOMAIN'
+        elif self.input_url_path != self.output_url_path:
+            self.ucheck_result['final_result'] = 'REDIRECTION_PATH'
 
+
+
+def urlcheck(url_text):
+    uc = UrlChecker(input_url=url_text)
+    uc.db_engine.dispose()
+    uc.db_txtlist_session.close()
+    return uc.ucheck_result
 
 if __name__ == "__main__":
-    uc = UrlChecker('comparehospitalcosts.com/')
-    # uc = UrlChecker('https://www.google.com/')
-    print(uc.ucheck_result)
-    # print(snoop_website('https://www.google.com'))
-    
+    # uc = UrlChecker('https://www.sbafla.com')
+    # # uc = UrlChecker('https://www.google.com/')
+    # print(uc.ucheck_result)
+    # # print(snoop_website('https://www.google.com'))
+    print(urlcheck('google.com'))
    
